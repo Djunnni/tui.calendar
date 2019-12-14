@@ -12,6 +12,7 @@ var dw = require('../common/dw'),
     datetime = require('../common/datetime'),
     Layout = require('../view/layout'),
     Drag = require('../handler/drag'),
+    Network = require('../network/connect'),
     controllerFactory = require('./controller'),
     weekViewFactory = require('./weekView'),
     monthViewFactory = require('./monthView'),
@@ -556,6 +557,13 @@ function Calendar(container, options) {
     this._controller.setCalendars(options.calendars);
 
     /**
+     * network connect
+     * @type {Network}
+     * @private
+     */
+    this._network = new Network();
+
+    /**
      * layout view (layout manager)
      * @type {Layout}
      * @private
@@ -752,64 +760,14 @@ Calendar.prototype._initialize = function(options) {
  */
 Calendar.prototype.createSchedules = function(schedules, silent) {
     util.forEach(schedules, function(obj) {
-
-        var color = calColor[obj.calendarId];
-
-        // overwrite schedule color with calendar's only if schedule is not customized
-        if (color) {
-            obj.color = obj.color || color.color;
-            obj.bgColor = obj.bgColor || color.bgColor;
-            obj.borderColor = obj.borderColor || color.borderColor;
-        }
-    });
+        this._setScheduleColor(obj.calendarId, obj);
+    }, this);
 
     this._controller.createSchedules(schedules, silent);
 
     if (!silent) {
         this.render();
     }
-};
-
-/**
- * Create schedules from url
- * @param {String} url - url to get json object array
- * @param {boolean} [silent=false] - no auto render after creation when set true
- * @example
- * calendar.createSchedulesFromUrl("/example");
- * @example
- * // json object array
- * [{
- *  "id": "1",
- *  "calendarId": "1",
- *  "title": "Distribute Computing",
- *  "category": "time",
- *  "start": "2019-11-15T10:30:00",
- *  "end": "2019-11-17T12:30:00"
- *  }
- * ,{
- *  "id": "2",
- *  "calendarId": "1",
- *  "title": "Algorithm",
- *  "category": "time",
- *  "start": "2019-11-16T10:30:00",
- *  "end": "2019-11-19T12:30:00",
- *  "isReadOnly": true,
- *  "color":"white"
- * }]
- */
-Calendar.prototype.createSchedulesFromUrl = function(url, silent) {
-    var self = this;
-    var xhr = new XMLHttpRequest();
-
-    xhr.onreadystatechange = function() {
-        if (xhr.readyState === XMLHttpRequest.DONE) {
-            if (xhr.status === 200) {
-                self.createSchedules(JSON.parse(xhr.responseText), silent);
-            }
-        }
-    };
-    xhr.open('GET', url, true);
-    xhr.send(null);
 };
 
 /**
@@ -906,6 +864,75 @@ Calendar.prototype.deleteSchedule = function(scheduleId, calendarId, silent) {
     if (!silent) {
         this.render();
     }
+};
+
+/**********
+ * Network methods
+ **********/
+
+/**
+ * get schedules from url
+ * @param {String} url - url to get json object array
+ * @param {boolean} [silent=false] - no auto render after creation when set true
+ * @example
+ * calendar.getSchedulesFromUrl("/example");
+ * @example
+ * // json object array
+ * [{
+ *  "id": "1",
+ *  "calendarId": "1",
+ *  "title": "Distribute Computing",
+ *  "category": "time",
+ *  "start": "2019-11-15T10:30:00",
+ *  "end": "2019-11-17T12:30:00"
+ *  }
+ * ,{
+ *  "id": "2",
+ *  "calendarId": "1",
+ *  "title": "Algorithm",
+ *  "category": "time",
+ *  "start": "2019-11-16T10:30:00",
+ *  "end": "2019-11-19T12:30:00",
+ *  "isReadOnly": true,
+ *  "color":"white"
+ * }]
+ */
+Calendar.prototype.getSchedulesFromUrl = function(url, silent) {
+    var ctrl = this._controller;
+    this._network._getAsync(url, function(responseText) {
+        ctrl.createSchedules(responseText, silent);
+    });
+};
+/**
+ * post Schedules using network post api
+ * @param {string} url - where to connect
+ * @param {object} dataObj - schedules or schedule
+ */
+Calendar.prototype.postScheduleFromUrl = function(url, dataObj) {
+    this._network._postAsync(url, dataObj, function(response) {
+        console.log(response);
+    });
+};
+
+/**
+ * Delete a schedule using network delete api
+ * @param {string} url - where to connect
+ */
+Calendar.prototype.deleteScheduleFromUrl = function(url) {
+    this._network._deleteAsync(url, function(response) {
+        console.log(response);
+    });
+};
+
+/**
+ * put a schedule using network put api
+ * @param {string} url - where to connect
+ * @param {object} dataObj - schedules
+ */
+Calendar.prototype.putScheduleFromUrl = function(url, dataObj) {
+    this._network._putAsync(url, dataObj, function(response) {
+        console.log(response);
+    });
 };
 
 /**********
